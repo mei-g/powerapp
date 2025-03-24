@@ -236,6 +236,8 @@ Concat(
 
 
 
+-  Manual HTML table
+
 "<table style=""width: 100%; border: 1px solid black; border-collapse: collapse"">
     <tr style=""border: 1px solid black; border-collapse: collapse""></tr>
         <th style=""color: white; background-color: #808080; border: 1px solid black; border-collapse: collapse"">Action</th>
@@ -371,6 +373,121 @@ Concat(
     </tr>
 </table>"
 ```
+
+- Mutiple ForAll :  ThisRecord refers to the inner most loop. so the outer loop need to be aliased using AS
+Clear(cImpactSummary);
+Clear(cIARequired);
+ForAll(
+    ChangeSummaryQuickView_Gallery.Selected.ProgramApplicability.Value As PA,
+    If(
+        EndsWith(
+            PA.Value,
+            "(ALL)"
+        ),
+        Collect(
+            cIARequired,
+            Filter(
+                cChoicesImpactedBU,
+                First(
+                    Split(
+                        PA.Value,
+                        "("
+                    )
+                ).Value in Value
+            )
+        ),
+        Collect(
+            cIARequired,
+            PA.Value
+        )
+    )
+);
+Clear(cIASubmited);
+ForAll(
+    ChangeSummary_ImpactGallery_1.AllItems As Impact,
+    ForAll(
+        Impact.Program,
+        Collect(
+            cIASubmited,
+            {Program: ThisRecord.Value}
+        )
+    )
+);
+ForAll(
+    cChoicesImpactedBU,
+    Collect(
+        cImpactSummary,
+        {
+            Program: ThisRecord.Value,
+            IARequired: If(
+                ThisRecord.Value in cIARequired.Value,
+                "Yes",
+                "No"
+            ),
+            IASubmitted: If(
+                ThisRecord.Value in cIASubmited.Program,
+                "Yes",
+                "No"
+            )
+        }
+    )
+);
+
+- Vertical Text
+
+"<div
+style='
+text-align:left;
+position:absolute;
+left:"&-Round((Self.Height-Self.Width/2),0)+100&"px;
+top: "&Round((Self.Height-Self.Width/2),0)-100&"px;
+width: "&Self.Height&"px;
+height: "&Self.Width&"px;
+transform: rotate(90deg);
+border:0.5px;
+border-style: solid;
+font-weight:" &If(EndsWith(ThisItem.Program, "(All)"), "bold", "normal") &";
+'>
+&nbsp" & ThisItem.Program &"
+</div>"
+
+- Patch Collections 
+
+ClearCollect(
+    CurrentItems,
+    Switch(
+        EditChangeList_Tabs.Selected.Value,
+        "For Endorsement",
+        CurrentMeeting.ForEndorsement,
+        "For Review and IA",
+        CurrentMeeting.ForReviewAndIa,
+        "For Approval",
+        CurrentMeeting.ForApproval.Id
+    )
+);
+Collect(
+    CurrentItems,
+    {
+        '@odata.type': "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference",
+        Id: EditMeetingChanges_Left.Selected.ID,
+        Value: Text(EditMeetingChanges_Left.Selected.ID)
+    }
+);
+Set(
+    CurrentMeeting,
+    Patch(
+        CurrentMeeting,
+        Switch(
+            EditChangeList_Tabs.Selected.Value,
+            "For Endorsement",
+            {ForEndorsement: CurrentItems},
+            "For Review and IA",
+            {ForReviewAndIa: CurrentItems},
+            "For Approval",
+            {ForApproval: CurrentItems}
+        )
+    )
+);
 
 ### concatanation
 
